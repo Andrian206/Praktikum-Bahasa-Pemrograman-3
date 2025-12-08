@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_margin="25dp"
+    android:gravity="center"
+    android:orientation="vertical">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=" CONTOH INTENT IMPLISIT"
+        android:textStyle="bold" />
+
+    <!-- Input URL -->
+    <EditText
+        android:id="@+id/edt_url"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Masukan URL" />
+
+    <Button
+        android:id="@+id/btn_buka_browser"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Buka Browser" />
+
+    <!-- Input Nomor Telepon -->
+    <EditText
+        android:id="@+id/edt_telepon"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Masukan Nomor Telpon" />
+
+    <Button
+        android:id="@+id/btn_buka_telepon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Panggi Nomor Telpon" />
+
+    <!-- Input Alamat Email -->
+    <EditText
+        android:id="@+id/edt_email"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="alamat email" />
+
+    <EditText
+        android:id="@+id/edt_subject"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Masukan subjek email" />
+
+    <EditText
+        android:id="@+id/edt_isi_email"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Masukan isi email" />
+
+    <Button
+        android:id="@+id/button_send_email"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Send Email" />
+
+</LinearLayout>

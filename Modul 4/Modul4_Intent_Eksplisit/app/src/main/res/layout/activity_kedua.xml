@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:layout_margin="10dp"
+    tools:context=".ActivityKedua">
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Data dari Activity Pertama"
+        android:layout_margin="10dp"
+        android:textAlignment="center" />
+
+    <TextView
+        android:id="@+id/univ"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="----"
+        android:layout_margin="2dp"
+        android:textAlignment="center" />
+
+    <TextView
+        android:id="@+id/fakultas"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="-----"
+        android:layout_margin="2dp"
+        android:textAlignment="center" />
+
+    <TextView
+        android:id="@+id/prodi"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="-----"
+        android:layout_margin="2dp"
+        android:textAlignment="center"
+        />
+
+    <TextView
+        android:id="@+id/matkul"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="-----"
+        android:layout_margin="2dp"
+        android:textAlignment="center"
+        />
+
+</LinearLayout>
