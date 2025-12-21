@@ -25,14 +25,9 @@ class ListKampusAdapter(private val listKampus: ArrayList<Kampus>) : RecyclerVie
         holder.tvSejarah.text = kampus.sejarah
 
         holder.itemView.setOnClickListener {
-            val builder: AlertDialog.Builder = AlertDialog.Builder(it.context)
-            builder
-                .setIcon(kampus.photo)
-                .setTitle("Detail Kampus: \n" + kampus.name)
-                .setMessage(kampus.lokasi + "\n" + kampus.sejarah)
-                .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
-            val dialog: AlertDialog = builder.create()
-            dialog.show()
+            val intent = Intent(it.context, DetailActivity::class.java)
+            intent.putExtra(DetailActivity.EXTRA_KAMPUS, kampus)
+            it.context.startActivity(intent)
         }
     }
 
