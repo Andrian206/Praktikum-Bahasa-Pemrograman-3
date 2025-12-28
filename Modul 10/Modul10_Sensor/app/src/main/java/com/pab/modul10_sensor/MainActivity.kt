@@ -6,30 +6,36 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
-import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.os.VibratorManager
-import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
+import android.media.MediaPlayer
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     private var proximitySensor: Sensor? = null
+    private var lightSensor: Sensor? = null
     private lateinit var vibrator: Vibrator
     private lateinit var cameraManager: CameraManager
     private var cameraId: String? = null
     private var mediaPlayer: MediaPlayer? = null
-    private lateinit var mainLayout: LinearLayout
+    private lateinit var mainLayout: ConstraintLayout
     private lateinit var textView: TextView
+    private var isAlertActive = false
+    private val handler = Handler(Looper.getMainLooper())
+    private var sensorCheckCount = 0
+    private var useProximitySensor = true
+    private var lightThreshold = 10f
+    private var lastLightValue = -1f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,84 +44,165 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         setupComponents()
     }
 
-    // Metode untuk menginisialisasi semua komponen yang diperlukan
     private fun setupComponents() {
-        mainLayout = findViewById(R.id.main)
+        mainLayout = findViewById(R.id.mainLayout)
         textView = findViewById(R.id.warningTextView)
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
-
-        if (proximitySensor == null) {
-            textView.text = "Sensor Jarak tidak ditemukan di perangkat ini."
-            Toast.makeText(this, "Sensor Jarak tidak tersedia", Toast.LENGTH_LONG).show()
-        }
-
-        vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            vibratorManager.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
-
+        vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
         mediaPlayer = MediaPlayer.create(this, R.raw.alarm)
 
-        // Mendapatkan ID kamera
+        proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
+        lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+        
+        if (proximitySensor == null && lightSensor == null) {
+            textView.text = "Tidak ada sensor yang tersedia!"
+        }
+
         initCameraId()
     }
 
-    // Mendapatkan ID kamera pertama yang tersedia
     private fun initCameraId() {
         try {
             val cameraIds = cameraManager.cameraIdList
-            if (cameraIds.isNotEmpty()) {
-                cameraId = cameraIds[0]
+            for (id in cameraIds) {
+                val characteristics = cameraManager.getCameraCharacteristics(id)
+                val hasFlash = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE)
+                if (hasFlash == true) {
+                    cameraId = id
+                    android.util.Log.d("FlashDebug", "Found camera with flash: $id")
+                    break
+                }
             }
-        } catch (e: CameraAccessException) {
+            if (cameraId == null && cameraIds.isNotEmpty()) {
+                cameraId = cameraIds[0]
+                android.util.Log.d("FlashDebug", "Using fallback camera: ${cameraId}")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FlashDebug", "Error finding camera: ${e.message}")
             e.printStackTrace()
         }
     }
 
-    // Mendaftarkan listener sensor saat aktivitas dilanjutkan
     override fun onResume() {
         super.onResume()
-        // Hanya daftarkan listener jika sensor ada
-        proximitySensor?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        sensorCheckCount = 0
+        useProximitySensor = true
+
+        sensorManager.unregisterListener(this)
+
+        if (proximitySensor != null) {
+            val registered = sensorManager.registerListener(
+                this, 
+                proximitySensor, 
+                SensorManager.SENSOR_DELAY_FASTEST
+            )
+            android.util.Log.d("ProximitySensor", "Proximity sensor registered: $registered")
+        }
+
+        if (lightSensor != null) {
+            val registered = sensorManager.registerListener(
+                this, 
+                lightSensor, 
+                SensorManager.SENSOR_DELAY_FASTEST
+            )
+            android.util.Log.d("LightSensor", "Light sensor registered: $registered")
+            android.util.Log.d("LightSensor", "Light sensor name: ${lightSensor?.name}")
+            android.util.Log.d("LightSensor", "Light sensor max range: ${lightSensor?.maximumRange}")
+        }
+
+        textView.text = "Tutup bagian atas HP untuk test\n(Menggunakan sensor cahaya)\n\nKetuk layar untuk test manual"
+
+        startSensorCheck()
+
+        mainLayout.setOnClickListener {
+            android.util.Log.d("ManualTest", "Screen tapped - testing flash and alarm")
+            if (!isAlertActive) {
+                isAlertActive = true
+                triggerProximityAlerts()
+                // Auto reset setelah 3 detik
+                handler.postDelayed({
+                    isAlertActive = false
+                    resetUI()
+                }, 3000)
+            }
         }
     }
+    
+    private fun startSensorCheck() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                sensorCheckCount++
+                android.util.Log.d("ProximitySensor", "Sensor check #$sensorCheckCount - waiting for events...")
+                if (sensorCheckCount < 10) {
+                    handler.postDelayed(this, 2000)
+                }
+            }
+        }, 2000)
+    }
 
-    // Membatalkan pendaftaran listener dan mematikan flash saat aktivitas dijeda
     override fun onPause() {
         super.onPause()
+        handler.removeCallbacksAndMessages(null)
         sensorManager.unregisterListener(this)
         turnOffFlash()
-        if (mediaPlayer?.isPlaying == true) {
-            mediaPlayer?.pause()
-        }
+        stopAlarmSound()
     }
 
-    // Menangani perubahan pada sensor proximity
     override fun onSensorChanged(event: SensorEvent) {
-        if (event.values[0] < (proximitySensor?.maximumRange ?: 0f)) {
-            // Jika objek dekat, aktifkan alarm
-            triggerProximityAlerts()
-        } else {
-            // Jika objek jauh, reset UI
-            resetUI()
+        when (event.sensor.type) {
+            Sensor.TYPE_PROXIMITY -> {
+                val distance = event.values[0]
+                val maxRange = proximitySensor?.maximumRange ?: 5f
+
+                android.util.Log.d("ProximitySensor", "Distance: $distance, MaxRange: $maxRange")
+
+                useProximitySensor = true
+
+                val isNear = distance < maxRange
+
+                if (isNear && !isAlertActive) {
+                    android.util.Log.d("ProximitySensor", "Object NEAR - Triggering alerts")
+                    isAlertActive = true
+                    triggerProximityAlerts()
+                } else if (!isNear && isAlertActive) {
+                    android.util.Log.d("ProximitySensor", "Object FAR - Resetting UI")
+                    isAlertActive = false
+                    resetUI()
+                }
+            }
+            
+            Sensor.TYPE_LIGHT -> {
+                val lightValue = event.values[0]
+
+                if (kotlin.math.abs(lightValue - lastLightValue) > 5f || lastLightValue < 0) {
+                    android.util.Log.d("LightSensor", "Light value: $lightValue lux")
+                    lastLightValue = lightValue
+                }
+
+                val isDark = lightValue < lightThreshold
+                
+                if (isDark && !isAlertActive) {
+                    android.util.Log.d("LightSensor", "LOW LIGHT detected ($lightValue lux) - Triggering alerts")
+                    isAlertActive = true
+                    triggerProximityAlerts()
+                } else if (!isDark && isAlertActive) {
+                    android.util.Log.d("LightSensor", "LIGHT restored ($lightValue lux) - Resetting UI")
+                    isAlertActive = false
+                    resetUI()
+                }
+            }
         }
     }
 
-    // Mengaktifkan alarm: menyalakan flash, getaran, mengubah warna latar, dan memutar suara
     private fun triggerProximityAlerts() {
         turnOnFlash()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
         } else {
             @Suppress("DEPRECATION")
-            vibrator.vibrate(500) // Untuk versi Android di bawah Oreo
+            vibrator.vibrate(500)
         }
         mainLayout.setBackgroundColor(Color.RED)
         textView.text = "Jarak Terlalu Dekat!"
@@ -124,48 +211,55 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun resetUI() {
         turnOffFlash()
-        if (mediaPlayer?.isPlaying == true) {
-            mediaPlayer?.pause()
-            mediaPlayer?.seekTo(0)
-        }
+        stopAlarmSound()
         mainLayout.setBackgroundColor(Color.WHITE)
         textView.text = "Proximity Sensor Active"
     }
 
-    // Tidak digunakan dalam implementasi ini
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
 
-    // Menyalakan flash
     private fun turnOnFlash() = setFlashlight(true)
 
-    // Mematikan flash
     private fun turnOffFlash() = setFlashlight(false)
 
-    // Mengatur status flash (nyala/mati)
     private fun setFlashlight(status: Boolean) {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                cameraId?.let { id ->
-                    val characteristics = cameraManager.getCameraCharacteristics(id)
-                    val hasFlash = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) ?: false
-                    if (hasFlash) {
-                        cameraManager.setTorchMode(id, status)
-                    }
-                }
+            if (cameraId != null) {
+                cameraManager.setTorchMode(cameraId!!, status)
+                android.util.Log.d("FlashDebug", "Flash set to: $status with cameraId: $cameraId")
+            } else {
+                android.util.Log.e("FlashDebug", "Cannot set flash - cameraId is null")
             }
-        } catch (e: CameraAccessException) {
+        } catch (e: Exception) {
+            android.util.Log.e("FlashDebug", "Error setting flash: ${e.message}")
             e.printStackTrace()
         }
     }
 
-    // Memutar suara alarm jika belum diputar
     private fun playAlarmSound() {
-        if (mediaPlayer?.isPlaying == false) {
-            mediaPlayer?.start()
+        try {
+            if (mediaPlayer != null && mediaPlayer?.isPlaying == false) {
+                mediaPlayer?.isLooping = true
+                mediaPlayer?.start()
+                android.util.Log.d("AlarmDebug", "Alarm started playing")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AlarmDebug", "Error playing alarm: ${e.message}")
         }
     }
 
-    // Melepaskan sumber daya media player saat aktivitas dihancurkan
+    private fun stopAlarmSound() {
+        try {
+            if (mediaPlayer?.isPlaying == true) {
+                mediaPlayer?.pause()
+                mediaPlayer?.seekTo(0)
+                android.util.Log.d("AlarmDebug", "Alarm stopped")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AlarmDebug", "Error stopping alarm: ${e.message}")
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         mediaPlayer?.release()

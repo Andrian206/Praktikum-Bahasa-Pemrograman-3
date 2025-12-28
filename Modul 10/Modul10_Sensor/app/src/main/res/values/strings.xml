@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Modul10_Sensor</string>
+    <string name="proximity_sensor_active">Proximity sensor aktif.</string>
+    <string name="proximity_sensor_unavailable">Proximity sensor tidak tersedia pada perangkat ini.</string>
+    <string name="proximity_too_close">Jarak terlalu dekat!</string>
+    <string name="camera_permission_required">Aktifkan izin kamera untuk menyalakan flash.</string>
+    <string name="flash_unavailable">Perangkat ini tidak memiliki lampu flash.</string>
 </resources>
